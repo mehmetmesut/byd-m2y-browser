@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Modified 2026-10 by Yeşil Dönüşüm Mühendisi - M2Y: Cromite patch set, M2Y layer, relay fixes (GPL-3.0, see LICENSE.md)
 # M2Y Browser: Chromium (Cromite's tag) + Cromite patch set + M2Y edits, built in relay stages.
 # Derived from ungoogled-chromium-android's build.sh (GPL-3.0); the staging/resume mechanics are kept as they were.
 set -eu -o pipefail

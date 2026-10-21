@@ -1,3 +1,4 @@
+# Copyright (C) 2026 Yeşil Dönüşüm Mühendisi - M2Y. SPDX-License-Identifier: GPL-3.0-only
 # M2Y Browser GN overrides; appended after Cromite's build/cromite.gn_args, so later assignments win.
 
 # own package, own name (strings are set by m2y/apply.sh)
@@ -13,6 +14,7 @@ chrome_pgo_phase = 0
 # No debug symbols or linker maps: nothing on the car uses them, and they cost hours and disk in the relay
 symbol_level = 0
 blink_symbol_level = 0
+use_debug_fission = false # Cromite turns it on; it requires symbols
 generate_linker_map = false
 
 # A warning must not throw away a 30-hour build

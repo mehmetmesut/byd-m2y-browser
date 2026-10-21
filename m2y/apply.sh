@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (C) 2026 Yeşil Dönüşüm Mühendisi - M2Y. SPDX-License-Identifier: GPL-3.0-only
 # M2Y Browser edits, applied inside the Chromium tree AFTER Cromite's patch set.
 # Plain text edits instead of .patch files, so they keep working when Cromite moves to a new Chromium tag.
 # Usage: m2y/apply.sh <chromium src dir>
