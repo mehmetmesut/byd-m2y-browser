@@ -1,3 +1,4 @@
+# M2Y Browser: hosted relay build (prep + 8 parts on free ubuntu-latest runners)
 name: M2Y Browser build
 
 on:

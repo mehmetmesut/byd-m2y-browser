@@ -1,3 +1,4 @@
+# M2Y Browser: reusable relay stages, called by build-hosted.yml
 name: build-steps.yml
 
 on:
