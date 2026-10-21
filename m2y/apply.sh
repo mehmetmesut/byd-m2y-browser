@@ -36,7 +36,8 @@ expect "$SUB" 'AdGuard Turkish'
 echo "--- M2Y: languages tr + en-US only"
 LOC=build/config/locales.gni
 expect "$LOC" 'platform_pak_locales -= _non_android_locales'
-perl -pi -e 's/^(  platform_pak_locales -= _non_android_locales\n)/$1  platform_pak_locales = [ "en-US", "tr" ]  # M2Y: car languages only\n/' "$LOC"
+# GN refuses to replace a nonempty list directly, so clear it first
+perl -pi -e 's/^(  platform_pak_locales -= _non_android_locales\n)/$1  platform_pak_locales = []\n  platform_pak_locales = [ "en-US", "tr" ]  # M2Y: car languages only\n/' "$LOC"
 expect "$LOC" 'M2Y: car languages only'
 
 echo "--- M2Y: drawables for a 240 dpi screen (keep mdpi/hdpi/xhdpi as fallbacks, drop tvdpi/xxhdpi; xxxhdpi is already dropped)"
