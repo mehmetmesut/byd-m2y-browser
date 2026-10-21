@@ -40,7 +40,7 @@ while true; do
     esac
 done
 
-if [[ "$ARCH" != "arm64" ]] && [[ "$ARCH" != "arm" ]]; then
+if [[ "$ARCH" != "arm64" ]] && [[ "$ARCH" != "arm" ]] && [[ "$ARCH" != "x64" ]]; then # x64: emulator test builds only
     echo "Wrong architecture"
     exit 4
 fi

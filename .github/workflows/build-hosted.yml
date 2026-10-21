@@ -11,7 +11,7 @@ on:
         required: true
         default: 'arm64'
         type: choice
-        options: [arm64, arm]
+        options: [arm64, arm, x64]
       chromium_source:
         description: 'chromium source'
         required: true
