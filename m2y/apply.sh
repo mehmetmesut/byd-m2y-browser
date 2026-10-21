@@ -59,6 +59,10 @@ if (is_android) {
 }
 GNI
 expect "$LOC" 'M2Y: car languages only'
+# The bundle subtracts extended_locales from our short list; filter_exclude tolerates absent items
+BUN=chrome/android/modules/chrome_bundle_tmpl.gni
+sed -i 's/system_image_locale_allowlist = platform_pak_locales - extended_locales/system_image_locale_allowlist = filter_exclude(platform_pak_locales, extended_locales)/' "$BUN"
+expect "$BUN" 'filter_exclude(platform_pak_locales, extended_locales)'
 
 echo "--- M2Y: drawables for a 240 dpi screen (keep mdpi/hdpi/xhdpi as fallbacks, drop tvdpi/xxhdpi; xxxhdpi is already dropped)"
 EXC=base/android/resource_exclusions.gni
