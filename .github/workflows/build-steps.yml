@@ -199,20 +199,3 @@ jobs:
           threads: ${{ inputs.threads }}
           keystore_b64: ${{ secrets.KEYSTORE_B64 }}
           keystore_pass: ${{ secrets.KEYSTORE_PASS }}
-  attest:
-    needs: [part-01, part-02, part-03, part-04, part-05, part-06, part-07, part-08]
-    if: ${{ always() && contains(needs.*.outputs.status, 'completed') }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: release-${{ inputs.architecture }}
-          path: rel
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
-        with:
-          subject-path: |
-            rel/ChromePublic_${{ inputs.architecture }}.apk
-            rel/ChromePublic_${{ inputs.architecture }}.aab
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
-        with:
-          subject-path: rel/SystemWebView_${{ inputs.architecture }}.apk

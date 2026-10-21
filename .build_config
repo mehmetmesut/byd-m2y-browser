@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
+# M2Y Browser build configuration (sourced by build.sh and the workflows)
 
-chrome_modern_target=chrome_public_bundle
-trichrome_chrome_apk_target=trichrome_chrome_bundle
-trichrome_chrome_64_apk_target=trichrome_chrome_64_bundle
-trichrome_chrome_bundle_target=trichrome_chrome_bundle
-trichrome_chrome_64_bundle_target=trichrome_chrome_64_bundle
+# ninja targets; build.sh resolves the --target name through these variables
+chrome_modern_target=chrome_public_apk
 webview_target=system_webview_apk
-trichrome_webview_target=trichrome_webview_apk
-trichrome_webview_64_target=trichrome_webview_64_apk
 all=all
 
-chromium_version=155.0.8059.39
-ungoogled_chromium_version=155.0.8059.39
-ungoogled_chromium_revision=1
-ungoogled_chromium_android_revision=1
+# Chromium tag = the tag Cromite's patch set is maintained for (build/RELEASE in the Cromite checkout)
+chromium_version=153.0.8010.37
+# Cromite commit whose patches are applied (release v153.0.8010.37-11507ac…)
+cromite_commit=11507ac1061b5ea227806f5e84db5a57df6ccf6a
+cromite_repo=https://github.com/uazo/cromite.git
+# M2Y revision on top of that Chromium tag; bump when m2y/apply.sh or m2y.gn_args change
+m2y_revision=1

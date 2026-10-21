@@ -94,7 +94,7 @@ runs:
         cd /mnt/ugc
         build/release.sh "${{ inputs.architecture }}"
         . ./.build_config
-        echo "UGC_VERSION=${chromium_version}-${ungoogled_chromium_android_revision}" >> "$GITHUB_ENV"
+        echo "UGC_VERSION=${chromium_version}-m2y${m2y_revision}" >> "$GITHUB_ENV"
 
     - name: Remove staged keystore
       if: always()

@@ -1,0 +1,3 @@
+# Cromite patches NOT applied to M2Y Browser, one file name per line (exact match against build/cromite_patches_list.txt).
+# Empty on purpose for the first builds: every Cromite patch is applied, so the tree matches what Cromite ships.
+# Dropping a patch is only safe after checking that no later patch builds on it.

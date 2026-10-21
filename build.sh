@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
+# M2Y Browser: Chromium (Cromite's tag) + Cromite patch set + M2Y edits, built in relay stages.
+# Derived from ungoogled-chromium-android's build.sh (GPL-3.0); the staging/resume mechanics are kept as they were.
 set -eu -o pipefail
 
 source .build_config
 
-# Show env
 pwd
 whoami
-echo $PATH
-echo $HOME
+echo "$PATH"
+echo "$HOME"
 
-# Argument parser from https://stackoverflow.com/questions/192249/how-do-i-parse-command-line-arguments-in-bash/29754866#29754866
 ! getopt --test > /dev/null
 if [[ ${PIPESTATUS[0]} -ne 4 ]]; then
-    echo 'I’m sorry, `getopt --test` failed in this environment.'
+    echo 'getopt --test failed in this environment.'
     exit 1
 fi
 
-OPTIONS=dlipra:t:
-LONGOPTS=debug,local-sdk,install-deps,prepare-only,resume,arch:,target:
+OPTIONS=dipra:t:
+LONGOPTS=debug,install-deps,prepare-only,resume,arch:,target:
 
 ! PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
 if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
@@ -25,73 +25,33 @@ if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
 fi
 eval set -- "$PARSED"
 
-ARCH=- TARGET=- DEBUG=n LOCAL_SDK=n INSTALL_DEPS=n PREPARE_ONLY=n RESUME=n
+ARCH=- TARGET=- DEBUG=n INSTALL_DEPS=n PREPARE_ONLY=n RESUME=n
 
 while true; do
     case "$1" in
-        -d|--debug)
-            DEBUG=y
-            shift
-            ;;
-        -l|--local-sdk)
-            LOCAL_SDK=y
-            shift
-            ;;
-        -i|--install-deps)
-            INSTALL_DEPS=y
-            shift
-            ;;
-        -p|--prepare-only)
-            PREPARE_ONLY=y
-            shift
-            ;;
-        -r|--resume)
-            RESUME=y
-            shift
-            ;;
-        -a|--arch)
-            ARCH="$2"
-            shift 2
-            ;;
-        -t|--target)
-            TARGET="$2"
-            shift 2
-            ;;
-        --)
-            shift
-            break
-            ;;
-        *)
-            echo "Programming error"
-            exit 3
-            ;;
+        -d|--debug) DEBUG=y; shift ;;
+        -i|--install-deps) INSTALL_DEPS=y; shift ;;
+        -p|--prepare-only) PREPARE_ONLY=y; shift ;;
+        -r|--resume) RESUME=y; shift ;;
+        -a|--arch) ARCH="$2"; shift 2 ;;
+        -t|--target) TARGET="$2"; shift 2 ;;
+        --) shift; break ;;
+        *) echo "Programming error"; exit 3 ;;
     esac
 done
 
-if [[ "$ARCH" != "arm64" ]] && [[ "$ARCH" != "arm" ]] && [[ "$ARCH" != "x86" ]]; then
+if [[ "$ARCH" != "arm64" ]] && [[ "$ARCH" != "arm" ]]; then
     echo "Wrong architecture"
     exit 4
 fi
-
-if [[ "$TARGET" != "chrome_modern_target" ]] && [[ "$TARGET" != "trichrome_chrome_apk_target" ]] && [[ "$TARGET" != "webview_target" ]] && [[ "$TARGET" != "trichrome_webview_target" ]] && [[ "$TARGET" != "all" ]]; then
+if [[ "$TARGET" != "chrome_modern_target" ]] && [[ "$TARGET" != "webview_target" ]]; then
     echo "Wrong target"
     exit 5
 fi
+TARGET_EXPANDED=${!TARGET}
+M2Y_VERSION="${chromium_version}-m2y${m2y_revision}"
 
-# 64-bit TriChrome
-if [[ "$ARCH" == "arm64" ]]; then
-  if [[ "$TARGET" == "trichrome_chrome_apk_target" ]]; then
-    TARGET_EXPANDED=${trichrome_chrome_64_apk_target}
-  elif [[ "$TARGET" == "trichrome_webview_target" ]]; then
-    TARGET_EXPANDED=${trichrome_webview_64_target}
-  else
-    TARGET_EXPANDED=${!TARGET}
-  fi
-else
-  TARGET_EXPANDED=${!TARGET}
-fi
-
-echo "arch: $ARCH, target: $TARGET, target expanded: ${TARGET_EXPANDED}, debug: $DEBUG, local sdk: $LOCAL_SDK"
+echo "arch: $ARCH, target: $TARGET -> ${TARGET_EXPANDED}, version: ${M2Y_VERSION}, debug: $DEBUG"
 
 path_modified=false
 
@@ -99,7 +59,7 @@ function prepare_repos {
   git config --global http.lowSpeedLimit 1000
   git config --global http.lowSpeedTime 900
 
-  declare -a arr=("depot_tools" "src" "ungoogled-chromium" ".cipd")
+  declare -a arr=("depot_tools" "src" "cromite" ".cipd")
   for dname in "${arr[@]}"
   do
     if [[ -d "$dname" ]]
@@ -111,9 +71,18 @@ function prepare_repos {
 
   path_modified=false
 
-  ## Clone ungoogled-chromium repo
-  git clone https://github.com/ungoogled-software/ungoogled-chromium.git -b ${ungoogled_chromium_version}-${ungoogled_chromium_revision} \
-   || return $?
+  ## Cromite patch set, pinned to the commit its Chromium tag was released from
+  mkdir -p cromite
+  pushd cromite
+  git init -q
+  git remote add origin "${cromite_repo}"
+  git fetch --depth 1 --no-tags origin "${cromite_commit}" || { popd; return 1; }
+  git checkout -q FETCH_HEAD
+  popd
+  if [ "$(cat cromite/build/RELEASE)" != "${chromium_version}" ]; then
+    echo "FATAL: cromite/build/RELEASE is $(cat cromite/build/RELEASE) but .build_config says ${chromium_version}"
+    return 1
+  fi
 
   CHROMIUM_SOURCE="${CHROMIUM_SOURCE:-https://chromium.googlesource.com/chromium/src.git}"
   mkdir -p src
@@ -180,7 +149,6 @@ function prepare_repos {
   python3 src/build/linux/sysroot_scripts/install-sysroot.py --arch=amd64
   python3 src/build/linux/sysroot_scripts/install-sysroot.py --arch=i386
   python3 src/v8/tools/builtins-pgo/download_profiles.py download --depot-tools "$(pwd -P)/depot_tools" --check-v8-revision --quiet || return $?
-  cp misc/UnindexedRules src/third_party/subresource-filter-ruleset/data
 }
 
 function reverse_change {
@@ -191,14 +159,11 @@ function reverse_change {
 }
 
 output_folder="out/Default"
-uc_keystore="$PWD/../uc_keystore/uc-release-key.keystore"
 stamp_file="src/${output_folder}/.build-stamp"
 
 build_fingerprint() {
-  printf '%s\n' "${chromium_version}-${ungoogled_chromium_android_revision}"
-  ( cat patches/series; find patches -name '*.patch' -type f | sort | xargs cat ) | sha256sum | cut -d' ' -f1
-  cat build.sh .build_config .gclient android_flags.gn android_flags.release.gn \
-      android_flags.debug.gn 2>/dev/null | sha256sum | cut -d' ' -f1
+  printf '%s\n' "${M2Y_VERSION}-${cromite_commit}"
+  cat m2y/apply.sh m2y/skip_patches.txt m2y.gn_args build.sh .build_config .gclient 2>/dev/null | sha256sum | cut -d' ' -f1
 }
 
 if [ "$RESUME" = y ]; then
@@ -207,9 +172,6 @@ if [ "$RESUME" = y ]; then
         echo "  stamp:      $([ -f "$stamp_file" ] && echo present || echo MISSING)"
         echo "  args.gn:    $([ -f src/out/Default/args.gn ] && echo present || echo MISSING)"
         echo "  src tree:   $([ -d src/third_party ] && echo present || echo MISSING)"
-        echo "  If these vanished between runs, actions/checkout wiped them: its default"
-        echo "  clean:true runs 'git clean -ffdx', and -x deletes gitignored paths like /src/."
-        echo "  The workflow sets clean: false to prevent this. Start a clean build (resume: no)."
         exit 7
     fi
     want=$(build_fingerprint | sha256sum | cut -d' ' -f1)
@@ -218,7 +180,6 @@ if [ "$RESUME" = y ]; then
         echo "FATAL: inputs changed since this build was stamped - resuming would mix old and new objects."
         echo "  stamped:  $have"
         echo "  current:  $want"
-        echo "  Start a clean build instead (resume: no)."
         exit 8
     fi
     echo "=== resuming verified build ==="
@@ -227,24 +188,17 @@ if [ "$RESUME" = y ]; then
         "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${GITHUB_RUN_NUMBER:-local}" \
         "$(find src/out/Default -name '*.o' 2>/dev/null | wc -l)" >> "$stamp_file"
 else
-    # Run preparation
     for i in $(seq 1 10); do prepare_repos && s=0 && break || s=$? && reverse_change && sleep 120; done; (exit $s)
 fi
 
 if [ "$INSTALL_DEPS" = y ]; then
     export DEBIAN_FRONTEND=noninteractive
     if ! command -v apt-get >/dev/null 2>&1; then
-        echo "FATAL: --install-deps needs apt. Chromium's own build/install-build-deps.py"
-        echo "  installs via apt-get and supports Debian/Ubuntu only, so there is nothing"
-        echo "  to call on this system."
-        echo "  Install the packages listed in README.md by hand (dnf/pacman lists are there),"
-        echo "  then run again without --install-deps. Everything after this step is distro-agnostic."
+        echo "FATAL: --install-deps needs apt (Chromium's install-build-deps supports Debian/Ubuntu only)."
         exit 9
     fi
     if [ "$(id -u)" -ne 0 ] && ! sudo -n true 2>/dev/null; then
-        echo "FATAL: --install-deps needs root or passwordless sudo, or it will hang on a password prompt."
-        echo "  run it by hand:  ( cd src && ./build/install-build-deps.sh --no-prompt --android --unsupported )"
-        echo "  or allow apt:    echo 'USER ALL=(ALL) NOPASSWD: /usr/bin/apt-get, /usr/bin/dpkg' | sudo tee /etc/sudoers.d/chromium-deps"
+        echo "FATAL: --install-deps needs root or passwordless sudo."
         exit 6
     fi
     apt-get -qq install -y lsb-release file 2>/dev/null \
@@ -252,76 +206,72 @@ if [ "$INSTALL_DEPS" = y ]; then
     ( cd src && ./build/install-build-deps.sh --no-prompt --android --unsupported ) || exit $?
 fi
 
-dependencies=(patch ccache zip python3)
+dependencies=(patch ccache zip python3 perl)
 missing=()
 for dependency in "${dependencies[@]}"; do
     command -v "$dependency" >/dev/null 2>&1 || missing+=("$dependency")
 done
 if [ ${#missing[@]} -ne 0 ]; then
     echo "FATAL: missing required tools: ${missing[*]}"
-    echo "  Install them with your package manager (per-distro lists are in README.md)."
     exit 10
 fi
 
 if [ "$RESUME" != y ]; then
-  ## Run ungoogled-chromium scripts
-  patch -p1 --ignore-whitespace -i patches/Other/ungoogled-main-repo-fix.patch --no-backup-if-mismatch
-  # Remove the cache file if exists
-  cache_file="domsubcache.tar.gz"
-  if [[ -f ${cache_file} ]] ; then
-      rm ${cache_file}
-  fi
+  ## Cromite patches (git am, as Cromite's own build does)
+  pushd src
+  git config user.email "ci@m2y.invalid"
+  git config user.name "M2Y CI"
+  # Cromite patches also touch these nested checkouts; fold them into the main repo so `git am` can reach them.
+  for sub in v8 third_party/devtools-frontend/src third_party/skia third_party/perfetto third_party/boringssl/src; do
+    if [ -e "$sub/.git" ]; then
+      echo "flattening $sub"
+      rm -rf "$sub/.git"
+      git rm -q -r --cached "$sub" 2>/dev/null || true
+      git add -f -q "$sub"
+    fi
+  done
+  git commit -q -m "M2Y: flatten nested checkouts" || true
 
-  # Ignore the pruning error
-  python3 ungoogled-chromium/utils/prune_binaries.py src ungoogled-chromium/pruning.list --keep-contingent-paths || true
-  python3 ungoogled-chromium/utils/patches.py apply src ungoogled-chromium/patches
-  python3 ungoogled-chromium/utils/domain_substitution.py apply -r ungoogled-chromium/domain_regex.list -f ungoogled-chromium/domain_substitution.list -c ${cache_file} src
+  mapfile -t PATCHES < <(grep -vE '^\s*(#|$)' ../cromite/build/cromite_patches_list.txt)
+  n=0
+  for p in "${PATCHES[@]}"; do
+    if grep -qxF "$p" ../m2y/skip_patches.txt 2>/dev/null; then
+      echo "skip   $p"
+      continue
+    fi
+    n=$((n+1))
+    echo "[$n/${#PATCHES[@]}] $p"
+    if ! git am --whitespace=nowarn -q "../cromite/build/patches/$p"; then
+      echo "FATAL: Cromite patch failed: $p"
+      git am --show-current-patch=diff 2>/dev/null | head -40
+      exit 11
+    fi
+  done
+  popd
 
-  # Additional Source Patches
-  ## Extra fixes for Chromium source
-  python3 ungoogled-chromium/utils/patches.py apply src patches
-  ## Second pruning list
-  pruning_list_2="pruning_2.list"
-  python3 ungoogled-chromium/utils/prune_binaries.py src ${pruning_list_2} --keep-contingent-paths || true
-  ## Second domain substitution list
-  substitution_list_2="domain_sub_2.list"
-  # Remove the cache file if exists
-  cache_file="domsubcache.tar.gz"
-  if [[ -f ${cache_file} ]] ; then
-      rm ${cache_file}
-  fi
-  python3 ungoogled-chromium/utils/domain_substitution.py apply -r ungoogled-chromium/domain_regex.list -f ${substitution_list_2} -c ${cache_file} src
-
-  psa_dat="src/components/privacy_sandbox/privacy_sandbox_attestations/preload/privacy-sandbox-attestations.dat"
-  [[ -f ${psa_dat} ]] || : > ${psa_dat}
-
-  ( cd src && git checkout HEAD -- \
-      components/signin/public/base/signin_pref_names.h \
-      components/signin/public/base/signin_pref_names.cc \
-      components/safe_browsing/core/common/safe_browsing_prefs.h \
-      components/safe_browsing/core/common/safe_browsing_prefs.cc 2>/dev/null ) || true
+  ## M2Y edits on top
+  m2y/apply.sh src
+  ( cd src && git add -A && git commit -q -m "M2Y Browser edits (m2y/apply.sh)" )
 
   ## Configure output folder
   export PATH=$OLD_PATH  # remove depot_tools from PATH
   pushd src
   mkdir -p "${output_folder}"
-  if [ "$DEBUG" = n ] ; then
-      cat ../ungoogled-chromium/flags.gn ../android_flags.gn ../android_flags.release.gn > "${output_folder}"/args.gn
-      if [ -f ../../uc_keystore/keystore.gn ]; then
-          cat ../../uc_keystore/keystore.gn >> "${output_folder}"/args.gn
-      fi
-  else
-      cat ../android_flags.gn ../android_flags.debug.gn > "${output_folder}"/args.gn
-  fi
-  printf '\ntarget_cpu="'"$ARCH"'"\n' >> "${output_folder}"/args.gn
-  # Trichrome doesn't forward version_name to base in bundle
-  printf '\nandroid_override_version_name="'"${chromium_version}"'"\n' >> "${output_folder}"/args.gn
-
+  {
+    # target_os first: cromite.gn_args branches on it
+    printf 'target_os="android"\ntarget_cpu="%s"\n\n' "$ARCH"
+    cat ../cromite/build/cromite.gn_args
+    printf '\n'
+    cat ../m2y.gn_args
+    printf '\nandroid_override_version_name="%s"\n' "${M2Y_VERSION}"
+    if [ "$DEBUG" = y ]; then printf 'is_debug=true\nis_official_build=false\n'; fi
+  } > "${output_folder}/args.gn"
   buildtools/linux64/gn gen "${output_folder}" --fail-on-unused-args
   popd
 
   { echo "build      $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    echo "version    ${chromium_version}-${ungoogled_chromium_android_revision}"
+    echo "version    ${M2Y_VERSION}"
+    echo "cromite    ${cromite_commit}"
     echo "commit     $(git rev-parse HEAD 2>/dev/null || echo unknown)"
     echo "fingerprint $(build_fingerprint | sha256sum | cut -d' ' -f1)"
     echo "session    $(date -u +%Y-%m-%dT%H:%M:%SZ)  run ${GITHUB_RUN_NUMBER:-local}  clean start"
@@ -367,48 +317,16 @@ ninja_build() {
   fi
   return $_rc
 }
+
 apk_out_folder="apk_out"
 mkdir -p "${apk_out_folder}"
 pushd src
 ninja_bin="third_party/ninja/ninja"
-if [[ "$TARGET" != "all" ]]; then
-  if [ "${TARGET_EXPANDED}" = "${chrome_modern_target}" ]; then
-    if [[ "$ARCH" == "arm64" ]]; then
-      ninja_build "${output_folder}" "${TARGET_EXPANDED}" chrome_public_apk system_webview_64_apk
-    elif [[ "$ARCH" == "arm" ]]; then
-      ninja_build "${output_folder}" "${TARGET_EXPANDED}" chrome_public_apk system_webview_apk
-    else
-      ninja_build "${output_folder}" "${TARGET_EXPANDED}" chrome_public_apk
-    fi
-  else
-    ninja_build "${output_folder}" "${TARGET_EXPANDED}"
-  fi
-  if [[ "$TARGET" == "trichrome_chrome_bundle_target" ]] || [[ "$TARGET" == "chrome_modern_target" ]] || [[ "$TARGET" == "trichrome_chrome_apk_target" ]] || [[ "$TARGET" == "trichrome_webview_target" ]]; then
-    if [ -f "$uc_keystore" ]; then
-      ../bundle_generate_apk.sh -o "${output_folder}" -a "${ARCH}" -t "${TARGET_EXPANDED}"
-    fi
-  fi
-  if [[ "$TARGET" != "webview_target" ]]; then
-    _apk_src="${output_folder}/apks/release"
-    [ -d "${_apk_src}" ] || _apk_src="${output_folder}/apks"
-    find "${_apk_src}" -maxdepth 1 -iname "*.apk" -exec cp -f {} ../"${apk_out_folder}" \;
-  else
-    find ${output_folder}/apks -iname "*.apk" -exec cp -f {} ../"${apk_out_folder}" \;
-  fi
+ninja_build "${output_folder}" "${TARGET_EXPANDED}"
+if [ "${TARGET_EXPANDED}" = "chrome_public_apk" ]; then
+  cp -f "${output_folder}/apks/ChromePublic.apk" "../${apk_out_folder}/M2YBrowser_${M2Y_VERSION}_${ARCH}.apk"
 else
-  ninja_build "out/Default" "$chrome_modern_target"
-  if [ -f "$uc_keystore" ]; then
-    ../bundle_generate_apk.sh -o "${output_folder}" -a "${ARCH}" -t "$chrome_modern_target"
-  fi
-  ninja_build "out/Default" "$webview_target"
-  ninja_build "out/Default" "$trichrome_webview_target"
-  find ${output_folder}/apks/release -iname "*.apk" -exec cp -f {} ../"${apk_out_folder}" \;
-
-  # arm64+TriChrome needs to be run separately, otherwise it will fail
-  if [[ "$ARCH" != "arm64" ]]; then
-    ninja_build "${output_folder}" "$trichrome_chrome_apk_target"
-    find ${output_folder}/apks/release -iname "*.apk" -exec cp -f {} ../"${apk_out_folder}" \;
-  fi
+  find "${output_folder}/apks" -maxdepth 1 -iname "*.apk" -exec cp -f {} "../${apk_out_folder}" \;
 fi
 popd
 
@@ -417,3 +335,4 @@ printf 'session    %s  run %s  BUILD COMPLETE\n' \
 echo "status=completed" >> "${GITHUB_OUTPUT:-/dev/null}"
 echo "=== build provenance ==="
 cat "$stamp_file"
+ls -l "${apk_out_folder}"

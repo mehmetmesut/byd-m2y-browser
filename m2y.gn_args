@@ -1,0 +1,16 @@
+# M2Y Browser GN overrides; appended after Cromite's build/cromite.gn_args, so later assignments win.
+
+# own package, own name (strings are set by m2y/apply.sh)
+chrome_public_manifest_package = "com.m2y.browser"
+
+# the BYD head unit is the only target: arm64 built by the workflow, one density, two languages
+# (locale and density trimming live in m2y/apply.sh because they are not GN args)
+
+# PGO profiles for android-arm64 are not public (https://issues.chromium.org/issues/372686816);
+# first builds go without PGO, which only costs some speed, never correctness
+chrome_pgo_phase = 0
+
+# ccache keeps the 6-hour relay stages productive
+cc_wrapper = "ccache"
+
+# no WebView is built for the car, keep the Chromium default package there

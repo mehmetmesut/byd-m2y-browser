@@ -1,16 +1,16 @@
-name: release build
+name: M2Y Browser build
 
 on:
   push:
-    tags: ['[0-9]+.[0-9]+.[0-9]+.[0-9]+-[0-9]+']
+    tags: ['[0-9]+.[0-9]+.[0-9]+.[0-9]+-m2y[0-9]+']
   workflow_dispatch:
     inputs:
       architecture:
         description: 'architecture'
         required: true
-        default: 'all'
+        default: 'arm64'
         type: choice
-        options: [all, arm64, arm]
+        options: [arm64, arm]
       chromium_source:
         description: 'chromium source'
         required: true
@@ -42,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        architecture: ${{ (github.event_name == 'push' || inputs.architecture == 'all') && fromJSON('["arm64","arm"]') || fromJSON(format('["{0}"]', inputs.architecture)) }}
+        architecture: ${{ github.event_name == 'push' && fromJSON('["arm64"]') || fromJSON(format('["{0}"]', inputs.architecture)) }}
     permissions:
       contents: read
       actions: read
