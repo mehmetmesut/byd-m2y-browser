@@ -117,7 +117,7 @@ function prepare_repos {
   export PYTHONPATH="$(pwd -P)/depot_tools${PYTHONPATH:+:$PYTHONPATH}"
   path_modified=true
   pushd src/third_party
-  ln -s ../../depot_tools
+  ln -sfn ../../depot_tools
   popd
 
   git config --global http.lowSpeedTime 120
@@ -227,7 +227,7 @@ if [ "$RESUME" != y ]; then
       echo "flattening $sub"
       rm -rf "$sub/.git"
       git rm -q -r --cached "$sub" 2>/dev/null || true
-      git add -f -q "$sub"
+      git add -f "$sub"
     fi
   done
   git commit -q -m "M2Y: flatten nested checkouts" || true
