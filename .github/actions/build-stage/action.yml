@@ -66,7 +66,7 @@ runs:
       with:
         name: build-tree-${{ inputs.architecture }}
         path: build-tree.tar.zst
-        retention-days: 1
+        retention-days: 5
         overwrite: true
         compression-level: 0
 

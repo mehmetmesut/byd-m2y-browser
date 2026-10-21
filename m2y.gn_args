@@ -10,7 +10,13 @@ chrome_public_manifest_package = "com.m2y.browser"
 # first builds go without PGO, which only costs some speed, never correctness
 chrome_pgo_phase = 0
 
-# ccache keeps the 6-hour relay stages productive
-cc_wrapper = "ccache"
+# No debug symbols or linker maps: nothing on the car uses them, and they cost hours and disk in the relay
+symbol_level = 0
+blink_symbol_level = 0
+generate_linker_map = false
+
+# A warning must not throw away a 30-hour build
+treat_warnings_as_errors = false
+fatal_linker_warnings = false
 
 # no WebView is built for the car, keep the Chromium default package there

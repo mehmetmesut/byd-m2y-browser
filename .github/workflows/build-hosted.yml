@@ -74,16 +74,14 @@ jobs:
           NAME: ${{ github.event_name == 'push' && github.ref_name || inputs.release_name }}
         run: |
           files=()
-          while IFS= read -r f; do files+=("$f"); done < <(find rel -name 'ChromePublic_*.apk' -o -name 'ChromePublic_arm64.aab' -o -name 'SystemWebView_*.apk')
+          while IFS= read -r f; do files+=("$f"); done < <(find rel -name 'M2YBrowser_*.apk')
           [ "${#files[@]}" -gt 0 ] || { echo "FATAL: no release files found"; exit 1; }
-          for f in "${files[@]}"; do
-              case "$f" in
-                  *.apk) [ -f "${f}.idsig" ] || { echo "FATAL: $f is not release-signed, refusing to publish"; exit 1; } ;;
-              esac
-          done
           printf 'releasing %s with:\n' "$NAME"
           printf '  %s\n' "${files[@]}"
+          sums=$(cd rel && find . -name 'M2YBrowser_*.apk' -exec sha256sum {} +)
+          # The cloud build is signed with Chromium's public debug key: a draft until it is re-signed with the M2Y key.
           gh release create "$NAME" "${files[@]}" \
               --repo "$GITHUB_REPOSITORY" \
               --title "$NAME" \
-              --notes "Please see [CHANGELOG](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/master/CHANGELOG.md) for latest updates."
+              --draft --prerelease \
+              --notes "Cloud build (debug-key signed; re-sign with the M2Y key before publishing). SHA-256:\n${sums}"
