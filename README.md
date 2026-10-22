@@ -14,7 +14,7 @@ The built-in BYD browser is an old WebView shell, and mainstream browsers are he
 | Head unit | Design decision |
 |---|---|
 | Android 10 (API 29), arm64, no Google services | Cromite's de-Googled Chromium: no Google sync, no Safe Browsing pings, no Discover feed, no prefetch/preload |
-| Qualcomm SM6125, 7.5 GB RAM | Ad and tracker blocking built into the engine (eyeo/Adblock Plus core) instead of an extension; no debug symbols |
+| Qualcomm SM6125, 8 GB RAM | Ad and tracker blocking built into the engine (eyeo/Adblock Plus core) instead of an extension; no debug symbols |
 | Turkish driver | Turkish and English (US) UI only; EasyList, anti-circumvention and **Turkish Filters** subscribed on first run |
 | 1920×1080 at 240 dpi | Only mdpi/hdpi/xhdpi drawables shipped (tvdpi/xxhdpi/xxxhdpi dropped) for a smaller APK |
 
