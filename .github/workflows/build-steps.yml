@@ -79,7 +79,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 350
     needs: part-01
-    if: needs.part-01.outputs.status == 'running'
+    if: ${{ !cancelled() && needs.part-01.outputs.status == 'running' }}  # !cancelled(): a skipped prep (resumed run) must not skip the relay
     outputs:
       status: ${{ steps.stage.outputs.status }}
     steps:
@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 350
     needs: part-02
-    if: needs.part-02.outputs.status == 'running'
+    if: ${{ !cancelled() && needs.part-02.outputs.status == 'running' }}  # !cancelled(): a skipped prep (resumed run) must not skip the relay
     outputs:
       status: ${{ steps.stage.outputs.status }}
     steps:
@@ -115,7 +115,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 350
     needs: part-03
-    if: needs.part-03.outputs.status == 'running'
+    if: ${{ !cancelled() && needs.part-03.outputs.status == 'running' }}  # !cancelled(): a skipped prep (resumed run) must not skip the relay
     outputs:
       status: ${{ steps.stage.outputs.status }}
     steps:
@@ -133,7 +133,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 350
     needs: part-04
-    if: needs.part-04.outputs.status == 'running'
+    if: ${{ !cancelled() && needs.part-04.outputs.status == 'running' }}  # !cancelled(): a skipped prep (resumed run) must not skip the relay
     outputs:
       status: ${{ steps.stage.outputs.status }}
     steps:
@@ -151,7 +151,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 350
     needs: part-05
-    if: needs.part-05.outputs.status == 'running'
+    if: ${{ !cancelled() && needs.part-05.outputs.status == 'running' }}  # !cancelled(): a skipped prep (resumed run) must not skip the relay
     outputs:
       status: ${{ steps.stage.outputs.status }}
     steps:
@@ -169,7 +169,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 350
     needs: part-06
-    if: needs.part-06.outputs.status == 'running'
+    if: ${{ !cancelled() && needs.part-06.outputs.status == 'running' }}  # !cancelled(): a skipped prep (resumed run) must not skip the relay
     outputs:
       status: ${{ steps.stage.outputs.status }}
     steps:
@@ -187,7 +187,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 350
     needs: part-07
-    if: needs.part-07.outputs.status == 'running'
+    if: ${{ !cancelled() && needs.part-07.outputs.status == 'running' }}  # !cancelled(): a skipped prep (resumed run) must not skip the relay
     outputs:
       status: ${{ steps.stage.outputs.status }}
     steps:
