@@ -4,6 +4,7 @@
 # Plain text edits instead of .patch files, so they keep working when Cromite moves to a new Chromium tag.
 # Usage: m2y/apply.sh <chromium src dir>
 set -euo pipefail
+M2Y_RES="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/res"  # before cd: the script may be called by a relative path
 cd "$1"
 
 fail() { echo "FATAL (m2y/apply.sh): $*" >&2; exit 1; }
@@ -69,5 +70,20 @@ EXC=base/android/resource_exclusions.gni
 grep -qE '^common_resource_exclusion_regex = "[^"]' "$EXC" || fail "unexpected resource_exclusions.gni"
 grep -q 'M2Y' "$EXC" || printf '\n# M2Y: single 240 dpi head unit\ncommon_resource_exclusion_regex += "|drawable[^/]*-(tvdpi|xxhdpi)\\b"\n' >> "$EXC"
 expect "$EXC" 'tvdpi|xxhdpi'
+
+echo "--- M2Y: launcher icon (hdpi = the car's 240 dpi, xhdpi fallback; Cromite's other densities removed)"
+ICO=chrome/android/java/res_chromium_base
+for f in app_icon layered_app_icon layered_app_icon_background; do
+  for d in mdpi xxhdpi xxxhdpi; do rm -f "$ICO/mipmap-$d/$f.png"; done
+  for d in hdpi xhdpi; do
+    [ -f "$ICO/mipmap-$d/$f.png" ] || fail "$ICO/mipmap-$d/$f.png missing"
+    cp "$M2Y_RES/mipmap-$d/$f.png" "$ICO/mipmap-$d/$f.png"
+    cmp -s "$M2Y_RES/mipmap-$d/$f.png" "$ICO/mipmap-$d/$f.png" || fail "$f ($d) not replaced"
+  done
+done
+# Android 13+ themed icon: the foreground layer's alpha instead of Cromite's vector
+[ -f "$ICO/drawable/themed_app_icon.xml" ] || fail "themed_app_icon.xml missing"
+printf '<?xml version="1.0" encoding="utf-8"?>\n<bitmap xmlns:android="http://schemas.android.com/apk/res/android" android:src="@mipmap/layered_app_icon" />\n' \
+  > "$ICO/drawable/themed_app_icon.xml"
 
 echo "--- M2Y: done"

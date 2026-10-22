@@ -164,7 +164,7 @@ stamp_file="src/${output_folder}/.build-stamp"
 
 build_fingerprint() {
   printf '%s\n' "${M2Y_VERSION}-${cromite_commit}"
-  cat m2y/apply.sh m2y/skip_patches.txt m2y.gn_args build.sh .build_config .gclient 2>/dev/null | sha256sum | cut -d' ' -f1
+  cat m2y/apply.sh m2y/skip_patches.txt m2y.gn_args build.sh .build_config .gclient $(find m2y/res -type f | sort) 2>/dev/null | sha256sum | cut -d' ' -f1
 }
 
 if [ "$RESUME" = y ]; then

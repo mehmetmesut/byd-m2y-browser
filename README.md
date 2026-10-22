@@ -24,7 +24,7 @@ The built-in BYD browser is an old WebView shell, and mainstream browsers are he
 |---|---|
 | Engine | Chromium, the tag Cromite is pinned to (see `.build_config`: `chromium_version`, `cromite_commit`) |
 | Patch set | Cromite, applied with `git am` (list minus `m2y/skip_patches.txt`) |
-| M2Y layer | `m2y/apply.sh` (name, package `com.m2y.browser`, Turkish filter list on first run, tr + en-US locales, 240 dpi resources), `m2y.gn_args` |
+| M2Y layer | `m2y/apply.sh` (name, package `com.m2y.browser`, Turkish filter list on first run, tr + en-US locales, 240 dpi resources, M2Y launcher icon from `m2y/res`), `m2y.gn_args` |
 | Build pipeline | GitHub Actions relay derived from ungoogled-chromium-android: a prep job fetches and patches the tree and runs `gn gen`; up to eight 4.5-hour jobs run `ninja` and pass the build tree on as an artifact (36 h ceiling) |
 
 Cloud builds are signed with Chromium's public debug key and released as drafts; the published APK is re-signed with the M2Y key outside this repository. An `x64` target exists only for testing in the Android emulator.
