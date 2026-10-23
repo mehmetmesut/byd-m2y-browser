@@ -45,16 +45,14 @@ LOC=build/config/locales.gni
 expect "$LOC" 'android_bundle_locales_as_resources'
 # Appended after every rule in the file: earlier lines remove Android names (es-r419, ...) and pseudolocales
 # from these lists and would fail on a short list. GN refuses to replace a nonempty list, hence the "= []".
+# locales_with_pseudolocales stays full: grit asserts it against every <output> of locale_settings_linux.grd.
+# Only the packaging lists are cut (repack, aapt_locale_allowlist); the extra paks are built but not shipped.
 grep -q 'M2Y: car languages only' "$LOC" || cat >> "$LOC" <<'GNI'
 
 # M2Y: car languages only
 if (is_android) {
   platform_pak_locales = []
   platform_pak_locales = [ "en-US", "tr" ]
-  locales_without_pseudolocales = []
-  locales_without_pseudolocales = platform_pak_locales
-  locales_with_pseudolocales = []
-  locales_with_pseudolocales = platform_pak_locales
   android_bundle_locales_as_resources = []
   android_bundle_locales_as_resources = [ "tr" ]
 }
