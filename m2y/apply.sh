@@ -79,6 +79,10 @@ for f in app_icon layered_app_icon layered_app_icon_background; do
     cmp -s "$M2Y_RES/mipmap-$d/$f.png" "$ICO/mipmap-$d/$f.png" || fail "$f ($d) not replaced"
   done
 done
+# chrome/android/BUILD.gn lists every icon density as a source; drop the removed ones or ninja stops on missing files
+expect chrome/android/BUILD.gn '"java/res_chromium_base/mipmap-mdpi/app_icon.png"'
+sed -i -E '\#"java/res_chromium_base/mipmap-(mdpi|xxhdpi|xxxhdpi)/#d' chrome/android/BUILD.gn
+! grep -qE '"java/res_chromium_base/mipmap-(mdpi|xxhdpi|xxxhdpi)/' chrome/android/BUILD.gn || fail "removed icons still listed in chrome/android/BUILD.gn"
 # Android 13+ themed icon: the foreground layer's alpha instead of Cromite's vector
 [ -f "$ICO/drawable/themed_app_icon.xml" ] || fail "themed_app_icon.xml missing"
 printf '<?xml version="1.0" encoding="utf-8"?>\n<bitmap xmlns:android="http://schemas.android.com/apk/res/android" android:src="@mipmap/layered_app_icon" />\n' \
