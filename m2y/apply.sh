@@ -66,8 +66,9 @@ expect "$BUN" 'filter_exclude(platform_pak_locales, extended_locales)'
 echo "--- M2Y: drawables for a 240 dpi screen (keep mdpi/hdpi/xhdpi as fallbacks, drop tvdpi/xxhdpi; xxxhdpi is already dropped)"
 EXC=base/android/resource_exclusions.gni
 grep -qE '^common_resource_exclusion_regex = "[^"]' "$EXC" || fail "unexpected resource_exclusions.gni"
-grep -q 'M2Y' "$EXC" || printf '\n# M2Y: single 240 dpi head unit\ncommon_resource_exclusion_regex += "|drawable[^/]*-(tvdpi|xxhdpi)\\b"\n' >> "$EXC"
-expect "$EXC" 'tvdpi|xxhdpi'
+# mediarouter is exempt: Chromium already drops its hdpi/xhdpi animation frames, xxhdpi is the only density left
+grep -q 'M2Y' "$EXC" || printf '\n# M2Y: single 240 dpi head unit\ncommon_resource_exclusion_regex += "|^(?!.*mediarouter).*drawable[^/]*-(tvdpi|xxhdpi)\\b"\n' >> "$EXC"
+expect "$EXC" '(?!.*mediarouter).*drawable\[^/\]\*-(tvdpi|xxhdpi)'
 
 echo "--- M2Y: launcher icon (hdpi = the car's 240 dpi, xhdpi fallback; Cromite's other densities removed)"
 ICO=chrome/android/java/res_chromium_base
