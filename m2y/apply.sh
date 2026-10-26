@@ -84,6 +84,17 @@ done
 expect chrome/android/BUILD.gn '"java/res_chromium_base/mipmap-mdpi/app_icon.png"'
 sed -i -E '\#"java/res_chromium_base/mipmap-(mdpi|xxhdpi|xxxhdpi)/#d' chrome/android/BUILD.gn
 ! grep -qE '"java/res_chromium_base/mipmap-(mdpi|xxhdpi|xxxhdpi)/' chrome/android/BUILD.gn || fail "removed icons still listed in chrome/android/BUILD.gn"
+# Cromite bakes its logo into the round icon's BACKGROUND (foreground = transparent shape) and draws the square icon on
+# white; M2Y's layers are a plain blue background + white symbol, so both adaptive icons must use exactly these two
+# layers or the launcher shows a bare blue disc (Pixel launcher prefers roundIcon; seen on Android 10, 26.10.2026)
+ICONS=$(grep -rlE --include='ic_launcher.xml' --include='ic_launcher_round.xml' '<adaptive-icon' chrome/android/java || true)
+[ -n "$ICONS" ] || fail "adaptive ic_launcher(_round).xml not found under chrome/android/java"
+for f in $ICONS; do
+  perl -0pi -e 's#(<background\b[^>]*?android:drawable=")[^"]*#${1}\@mipmap/layered_app_icon_background#s;
+                s#(<foreground\b[^>]*?android:drawable=")[^"]*#${1}\@mipmap/layered_app_icon#s' "$f"
+  expect "$f" 'android:drawable="@mipmap/layered_app_icon_background"'
+  expect "$f" 'android:drawable="@mipmap/layered_app_icon"'
+done
 # Android 13+ themed icon: the foreground layer's alpha instead of Cromite's vector
 [ -f "$ICO/drawable/themed_app_icon.xml" ] || fail "themed_app_icon.xml missing"
 printf '<?xml version="1.0" encoding="utf-8"?>\n<bitmap xmlns:android="http://schemas.android.com/apk/res/android" android:src="@mipmap/layered_app_icon" />\n' \
