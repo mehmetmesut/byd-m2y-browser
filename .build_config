@@ -12,4 +12,4 @@ chromium_version=153.0.8010.37
 cromite_commit=11507ac1061b5ea227806f5e84db5a57df6ccf6a
 cromite_repo=https://github.com/uazo/cromite.git
 # M2Y revision on top of that Chromium tag; bump when m2y/apply.sh or m2y.gn_args change
-m2y_revision=1
+m2y_revision=2

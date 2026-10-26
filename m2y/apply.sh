@@ -100,4 +100,78 @@ done
 printf '<?xml version="1.0" encoding="utf-8"?>\n<bitmap xmlns:android="http://schemas.android.com/apk/res/android" android:src="@mipmap/layered_app_icon" />\n' \
   > "$ICO/drawable/themed_app_icon.xml"
 
+echo "--- M2Y: one fixed configuration (mandatory policies, feature defaults, hidden option entries)"
+# Cromite's command-line policy loader runs on every start. M2Y's policies are set directly (not via AddPolicy), so
+# chrome://policy cannot switch them off; the settings UI shows them as managed and unchangeable.
+POL=components/policy/core/common/policy_loader_command_line.cc
+expect "$POL" '  policy_map.Set(policy::key::kEnableExperimentalPolicies,'
+grep -q 'M2Y: fixed car configuration' "$POL" || perl -0pi -e 's#(\n  policy_map\.Set\(policy::key::kEnableExperimentalPolicies,)#
+  // M2Y: fixed car configuration
+  const auto m2y = [&policy_map](const char* name, base::Value value) {
+    policy_map.Set(name, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_MACHINE,
+                   POLICY_SOURCE_COMMAND_LINE, std::move(value), nullptr);
+  };
+  // Google is the only search engine; no suggestion request per keystroke
+  m2y(key::kDefaultSearchProviderEnabled, base::Value(true));
+  m2y(key::kDefaultSearchProviderName, base::Value("Google"));
+  m2y(key::kDefaultSearchProviderKeyword, base::Value("google.com"));
+  m2y(key::kDefaultSearchProviderSearchURL,
+      base::Value("https://www.google.com/search?q={searchTerms}&ie={inputEncoding}"));
+  m2y(key::kSearchSuggestEnabled, base::Value(false));
+  // JavaScript JIT and optimizer on (Cromite blocks JIT by default): 1 = allow
+  m2y(key::kDefaultJavaScriptJitSetting, base::Value(1));
+  m2y(key::kDefaultJavaScriptOptimizerSetting, base::Value(1));
+  // no push, no form filling, no printing in the car: 2 = block
+  m2y(key::kDefaultNotificationsSetting, base::Value(2));
+  m2y(key::kPasswordManagerEnabled, base::Value(false));
+  m2y(key::kAutofillAddressEnabled, base::Value(false));
+  m2y(key::kAutofillCreditCardEnabled, base::Value(false));
+  m2y(key::kPrintingEnabled, base::Value(false));
+  base::ListValue m2y_blocked;
+  m2y_blocked.Append("chrome://flags");
+  m2y(key::kURLBlocklist, base::Value(std::move(m2y_blocked)));
+$1#' "$POL"
+expect "$POL" 'm2y(key::kDefaultSearchProviderSearchURL,'
+expect "$POL" 'm2y(key::kURLBlocklist, base::Value(std::move(m2y_blocked)));'
+
+# Feature defaults: an exact file and value per edit, so a Cromite update that moves them stops the build here
+flip() {  # flip <file> <feature name> <from> <to>
+  perl -0pi -e "s/(\"$2\",\\s*base::)FEATURE_$3_BY_DEFAULT/\${1}FEATURE_$4_BY_DEFAULT/" "$1"
+  grep -A1 "\"$2\"," "$1" | grep -q "FEATURE_$4_BY_DEFAULT" || fail "$2 is not $4 in $1"
+}
+# keyboard: Chromium's own IME resize instead of Cromite's protected viewport scroll view (keyboard latency)
+flip cromite_flags/third_party/blink/common/features_cc/Android-Protected-Keyboard-Geometry.inc AndroidProtectedKeyboardGeometry ENABLED DISABLED
+# key events keep the real (Turkish) layout
+flip ui/base/ui_base_features.cc SystemKeyboardProtection ENABLED DISABLED
+# moving car, changing IP: QUIC sessions migrate (Chromium's Android default) instead of closing
+CIP=cromite_flags/net/base/features_cc/Close-Sessions-On-Ip-Change.inc
+flip "$CIP" CloseSessionsOnIpChange ENABLED DISABLED
+sed -i '/^SET_CROMITE_FEATURE_DISABLED(kMigrateSessionsOnNetworkChangeV2);$/d' "$CIP"
+! grep -q 'kMigrateSessionsOnNetworkChangeV2' "$CIP" || fail "QUIC migration still forced off in $CIP"
+NETF=net/base/features.cc
+perl -0pi -e 's/(#if BUILDFLAG\(IS_ANDROID\)\ninline constexpr auto kMigrateSessionsOnNetworkChangeV2Default =\n    base::)FEATURE_DISABLED_BY_DEFAULT/${1}FEATURE_ENABLED_BY_DEFAULT/' "$NETF"
+grep -A2 '^#if BUILDFLAG(IS_ANDROID)$' "$NETF" | grep -A1 'kMigrateSessionsOnNetworkChangeV2Default =' | grep -q ENABLED || fail "QUIC migration default not restored in $NETF"
+# tab switcher: list mode, which also turns tab snapshots off (TabContentManager snapshotsEnabled)
+flip cromite_flags/chrome/browser/flags/android/chrome_feature_list_cc/tab-switcher-list-mode.inc TabSwitcherListMode DISABLED ENABLED
+LST=chrome/browser/flags/android/java/src/org/chromium/chrome/browser/flags/cromite/sTabSwitcherListMode.java
+sed -i 's/"TabSwitcherListMode", false);/"TabSwitcherListMode", true);/' "$LST"  # the first run, before the flag cache exists
+expect "$LST" '"TabSwitcherListMode", true);'
+
+# Options with no policy: entries hidden (code stays, so later Cromite patches keep applying)
+HIDE="always_incognito proxy useragent_settings userscripts_settings force_tablet_ui move_toolbar_bottom pixel_perfect_mode
+      enable_extensions_android enable_cromite_test_support act_as_webview test_gwp_asan throttle_main_thread_to_60hz
+      allow_inline_update cromite_flags tabgrid_use_icons use_tab_switcher_list_mode"
+XMLS=$(find chrome/android/java/res/xml components/browser_ui/accessibility/android/java/res/xml -name '*.xml')
+for k in $HIDE; do
+  files=$(grep -l "android:key=\"$k\"" $XMLS || true)
+  [ -n "$files" ] || fail "preference '$k' not found"
+  for f in $files; do
+    grep -q 'xmlns:app=' "$f" || sed -i '0,/xmlns:android="[^"]*"/s##& xmlns:app="http://schemas.android.com/apk/res-auto"#' "$f"
+    grep -q "android:key=\"$k\" app:isPreferenceVisible=\"false\"" "$f" ||
+      sed -i "s#android:key=\"$k\"#& app:isPreferenceVisible=\"false\"#" "$f"
+    expect "$f" "android:key=\"$k\" app:isPreferenceVisible=\"false\""
+    expect "$f" 'xmlns:app='
+  done
+done
+
 echo "--- M2Y: done"
