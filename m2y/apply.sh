@@ -118,6 +118,11 @@ grep -q 'M2Y: fixed car configuration' "$POL" || perl -0pi -e 's#(\n  policy_map
   m2y(key::kDefaultSearchProviderSearchURL,
       base::Value("https://www.google.com/search?q={searchTerms}&ie={inputEncoding}"));
   m2y(key::kSearchSuggestEnabled, base::Value(false));
+  // home page www.google.com behind the home button
+  m2y(key::kHomepageLocation, base::Value("https://www.google.com/"));
+  m2y(key::kHomepageIsNewTabPage, base::Value(false));
+  m2y(key::kShowHomeButton, base::Value(true));
+  m2y(key::kBookmarkBarEnabled, base::Value(true));
   // JavaScript JIT and optimizer on (Cromite blocks JIT by default): 1 = allow
   m2y(key::kDefaultJavaScriptJitSetting, base::Value(1));
   m2y(key::kDefaultJavaScriptOptimizerSetting, base::Value(1));
@@ -133,6 +138,21 @@ grep -q 'M2Y: fixed car configuration' "$POL" || perl -0pi -e 's#(\n  policy_map
 $1#' "$POL"
 expect "$POL" 'm2y(key::kDefaultSearchProviderSearchURL,'
 expect "$POL" 'm2y(key::kURLBlocklist, base::Value(std::move(m2y_blocked)));'
+expect "$POL" 'm2y(key::kHomepageLocation, base::Value("https://www.google.com/"));'
+
+# The engine list itself holds only Google: Cromite appends "Google in English" and DuckDuckGo Light to the regional
+# list (Bing, Yandex, ... in Turkey) in both GetPrepopulatedEngines and GetLocalPrepopulatedEngines
+TUP=components/search_engines/template_url_prepopulate_data.cc
+[ "$(grep -c 't_urls.push_back(TemplateURLDataFromPrepopulatedEngine(duckduckgo_light));' "$TUP")" = 2 ] ||
+  grep -q 'M2Y: Google is the only search engine' "$TUP" || fail "Cromite's engine list additions not found in $TUP"
+perl -0pi -e 's#  t_urls\.push_back\(TemplateURLDataFromPrepopulatedEngine\(googleen\)\);\n  t_urls\.push_back\(TemplateURLDataFromPrepopulatedEngine\(duckduckgo_light\)\);\n#  // M2Y: Google is the only search engine\n  t_urls.clear();\n  t_urls.push_back(TemplateURLDataFromPrepopulatedEngine(google));\n#g' "$TUP"
+[ "$(grep -c 'M2Y: Google is the only search engine' "$TUP")" = 2 ] || fail "engine list not cut to Google in $TUP"
+
+# Preferred languages Turkish (first = default) and English only; the Turkish resource default is "tr-TR,tr,en-US,en"
+# and the selected-languages pref is initialised from this default. No ForcedLanguages policy on Android.
+LP=components/language/core/browser/language_prefs.cc
+perl -0pi -e 's/(RegisterStringPref\(language::prefs::kAcceptLanguages,\s*)l10n_util::GetStringUTF8\(IDS_ACCEPT_LANGUAGES\),/${1}"tr,en",  \/\/ M2Y: Turkish and English only/' "$LP"
+expect "$LP" '"tr,en",  // M2Y: Turkish and English only'
 
 # Feature defaults: an exact file and value per edit, so a Cromite update that moves them stops the build here
 flip() {  # flip <file> <feature name> <from> <to>
