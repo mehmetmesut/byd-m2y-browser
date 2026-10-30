@@ -155,6 +155,9 @@ function prepare_repos {
   python3 src/build/linux/sysroot_scripts/install-sysroot.py --arch=amd64
   python3 src/build/linux/sysroot_scripts/install-sysroot.py --arch=i386
   python3 src/v8/tools/builtins-pgo/download_profiles.py download --depot-tools "$(pwd -P)/depot_tools" --check-v8-revision --quiet || return $?
+  # PGO (Cromite: chrome_pgo_phase = 2): arm64 reads chrome/android/orderfiles/arm64 (a DEPS package); its arm32
+  # side toolchain needs the public android-arm32 profile from Cloud Storage
+  python3 src/tools/update_pgo_profiles.py --target=android-arm32 update --gs-url-base=chromium-optimization-profiles/pgo_profiles || return $?
 }
 
 function reverse_change {
