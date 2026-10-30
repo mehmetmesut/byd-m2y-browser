@@ -19,6 +19,18 @@ if [[ " $* " == *" --resume "* ]] && [ -x src/third_party/ninja/ninja ] && [ -f 
   fi
 fi
 
+# M2Y: ninja gets what is left of the 350 min job minus 25 min to pack and save the tree;
+# a slow restore made the fixed budget overrun the job (x64 run 40394468293 lost its part).
+_job_s=$(ps -o etimes= -C Runner.Worker 2>/dev/null | sort -n | tail -1 | tr -d ' ')
+if [ -n "$_job_s" ] && [ -n "${NINJA_TIMEOUT:-}" ]; then
+  _left=$(( 350 * 60 - _job_s - 25 * 60 ))
+  if [ "$_left" -lt "${NINJA_TIMEOUT%s}" ]; then
+    [ "$_left" -gt 600 ] || _left=600
+    export NINJA_TIMEOUT="${_left}s"
+    echo "ninja budget lowered to ${NINJA_TIMEOUT} (job running for ${_job_s}s)"
+  fi
+fi
+
 : > build-step.log
 setsid ./build.sh "$@" < /dev/null >> build-step.log 2>&1 &
 _pid=$!

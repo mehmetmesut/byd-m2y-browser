@@ -86,7 +86,7 @@ Designed and tested on the BYD SEAL U DM-i (DiLink 3.0). Other BYD models with a
 | `part-01` … `part-08` | Eight relay jobs: each restores the saved tree, runs `ninja` for up to 4.5 hours, then saves the tree again (or, when finished, collects the APK). A part only starts if the previous one reports unfinished work, so the whole build may take up to 8 × 4.5 h |
 | `release` | Only when a tag or release name is given: creates a **draft pre-release** with the APK and SHA-256 sums |
 
-A resumed build refuses to continue when `m2y/apply.sh`, `m2y.gn_args`, `build.sh` or the other inputs changed since the tree was stamped, so old and new objects are never mixed. You can also resume a failed run by giving its run id (`source_run_id`).
+A resumed build refuses to continue when `m2y/apply.sh`, `m2y.gn_args`, `build.sh` or the other inputs changed since the tree was stamped, so old and new objects are never mixed. You can also resume a failed run by giving its run id (`source_run_id`). For a change in the M2Y layer only (`m2y/apply.sh`, `m2y.gn_args`, `.build_config` revision), give a finished run's id with `update`: its saved tree gets the previous M2Y commit reset and the current `m2y/apply.sh` applied, and `ninja` rebuilds only what changed. A new Chromium tag, Cromite commit or `m2y/skip_patches.txt` still needs a clean build; build trees are kept for 5 days.
 
 **On your own Linux (Debian/Ubuntu) machine** with `patch`, `ccache`, `zip`, `python3` and `perl`:
 
@@ -94,7 +94,7 @@ A resumed build refuses to continue when `m2y/apply.sh`, `m2y.gn_args`, `build.s
 ./build.sh --install-deps --arch arm64 --target chrome_modern_target
 ```
 
-The APK appears in `apk_out/` as `M2YBrowser_<chromium_version>-m2y<revision>_<arch>.apk`. Versions and the Cromite commit are pinned in `.build_config`; Cromite patches to skip can be listed in `m2y/skip_patches.txt` (empty for now); M2Y's edits live in `m2y/apply.sh` and `m2y.gn_args`. Flags: `--prepare-only` stops before `ninja`, `--resume` continues a stamped tree.
+The APK appears in `apk_out/` as `M2YBrowser_<chromium_version>-m2y<revision>_<arch>.apk`. Versions and the Cromite commit are pinned in `.build_config`; Cromite patches to skip can be listed in `m2y/skip_patches.txt` (empty for now); M2Y's edits live in `m2y/apply.sh` and `m2y.gn_args`. Flags: `--prepare-only` stops before `ninja`, `--resume` continues a stamped tree, `--resume --update` re-applies the M2Y layer on a finished tree.
 
 ### The story, once more
 
@@ -177,7 +177,7 @@ BYD SEAL U DM-i (DiLink 3.0) üzerinde tasarlandı ve denendi. Android 10+ arm64
 | `part-01` … `part-08` | Sekiz aktarmalı iş: her biri saklanan ağacı geri yükler, 4,5 saate kadar `ninja` çalıştırır, sonra ağacı yeniden saklar (bittiyse APK'yi toplar). Bir bölüm yalnız öncekinin işi bitmemişse başlar; yani derleme en çok 8 × 4,5 saat sürebilir |
 | `release` | Yalnız etiket ya da yayın adı verilmişse: APK ve SHA-256 toplamlarıyla **taslak ön sürüm** oluşturur |
 
-Devam eden bir derleme, ağaç damgalandıktan sonra `m2y/apply.sh`, `m2y.gn_args`, `build.sh` ya da diğer girdiler değişmişse sürmeyi reddeder; böylece eski ve yeni nesneler karışmaz. Başarısız bir çalıştırmayı, kimliğini (`source_run_id`) vererek de sürdürebilirsiniz.
+Devam eden bir derleme, ağaç damgalandıktan sonra `m2y/apply.sh`, `m2y.gn_args`, `build.sh` ya da diğer girdiler değişmişse sürmeyi reddeder; böylece eski ve yeni nesneler karışmaz. Başarısız bir çalıştırmayı, kimliğini (`source_run_id`) vererek de sürdürebilirsiniz. Yalnız M2Y katmanı değiştiyse (`m2y/apply.sh`, `m2y.gn_args`, `.build_config` revizyonu) bitmiş bir çalıştırmanın kimliğini `update` ile verin: saklanan ağaçta önceki M2Y işlemesi geri alınır, güncel `m2y/apply.sh` uygulanır ve `ninja` yalnız değişeni yeniden derler. Yeni Chromium etiketi, Cromite işlemesi ya da `m2y/skip_patches.txt` yine temiz derleme ister; derleme ağaçları 5 gün saklanır.
 
 **Kendi Linux (Debian/Ubuntu) bilgisayarınızda**; `patch`, `ccache`, `zip`, `python3` ve `perl` gerekir:
 
@@ -185,7 +185,7 @@ Devam eden bir derleme, ağaç damgalandıktan sonra `m2y/apply.sh`, `m2y.gn_arg
 ./build.sh --install-deps --arch arm64 --target chrome_modern_target
 ```
 
-APK, `apk_out/` klasöründe `M2YBrowser_<chromium_version>-m2y<revizyon>_<mimari>.apk` adıyla çıkar. Sürümler ve Cromite işlemesi `.build_config` içinde sabittir; atlanacak Cromite yamaları `m2y/skip_patches.txt` dosyasına yazılabilir (şimdilik boş); M2Y düzenlemeleri `m2y/apply.sh` ve `m2y.gn_args` içindedir. Seçenekler: `--prepare-only` `ninja`'dan önce durur, `--resume` damgalı ağaçta devam eder.
+APK, `apk_out/` klasöründe `M2YBrowser_<chromium_version>-m2y<revizyon>_<mimari>.apk` adıyla çıkar. Sürümler ve Cromite işlemesi `.build_config` içinde sabittir; atlanacak Cromite yamaları `m2y/skip_patches.txt` dosyasına yazılabilir (şimdilik boş); M2Y düzenlemeleri `m2y/apply.sh` ve `m2y.gn_args` içindedir. Seçenekler: `--prepare-only` `ninja`'dan önce durur, `--resume` damgalı ağaçta devam eder, `--resume --update` bitmiş ağaca M2Y katmanını yeniden uygular.
 
 ### Hikâye, bir kez daha
 
@@ -268,7 +268,7 @@ adb install -r M2YBrowser_153.0.8010.37-m2y1_arm64.apk
 | `part-01` … `part-08` | Восемь эстафетных заданий: каждое восстанавливает сохранённое дерево, до 4,5 часа выполняет `ninja`, затем снова сохраняет дерево (а по завершении собирает APK). Часть запускается, только если предыдущая сообщила о незавершённой работе, поэтому вся сборка может занять до 8 × 4,5 ч |
 | `release` | Только если указан тег или имя релиза: создаёт **черновик пре-релиза** с APK и суммами SHA-256 |
 
-Продолжаемая сборка отказывается идти дальше, если после отметки дерева изменились `m2y/apply.sh`, `m2y.gn_args`, `build.sh` или другие входные файлы, — так старые и новые объекты не смешиваются. Неудачный запуск можно продолжить, указав его идентификатор (`source_run_id`).
+Продолжаемая сборка отказывается идти дальше, если после отметки дерева изменились `m2y/apply.sh`, `m2y.gn_args`, `build.sh` или другие входные файлы, — так старые и новые объекты не смешиваются. Неудачный запуск можно продолжить, указав его идентификатор (`source_run_id`). Если изменился только слой M2Y (`m2y/apply.sh`, `m2y.gn_args`, ревизия в `.build_config`), укажите идентификатор завершённого запуска вместе с `update`: в сохранённом дереве откатывается прежний коммит M2Y, применяется текущий `m2y/apply.sh`, и `ninja` пересобирает только изменённое. Новый тег Chromium, коммит Cromite или `m2y/skip_patches.txt` по-прежнему требуют чистой сборки; деревья сборки хранятся 5 дней.
 
 **На собственном компьютере с Linux (Debian/Ubuntu)**; нужны `patch`, `ccache`, `zip`, `python3` и `perl`:
 
@@ -276,7 +276,7 @@ adb install -r M2YBrowser_153.0.8010.37-m2y1_arm64.apk
 ./build.sh --install-deps --arch arm64 --target chrome_modern_target
 ```
 
-APK появится в `apk_out/` под именем `M2YBrowser_<chromium_version>-m2y<ревизия>_<архитектура>.apk`. Версии и коммит Cromite закреплены в `.build_config`; пропускаемые патчи Cromite можно перечислить в `m2y/skip_patches.txt` (пока пуст); правки M2Y находятся в `m2y/apply.sh` и `m2y.gn_args`. Параметры: `--prepare-only` останавливается перед `ninja`, `--resume` продолжает отмеченное дерево.
+APK появится в `apk_out/` под именем `M2YBrowser_<chromium_version>-m2y<ревизия>_<архитектура>.apk`. Версии и коммит Cromite закреплены в `.build_config`; пропускаемые патчи Cromite можно перечислить в `m2y/skip_patches.txt` (пока пуст); правки M2Y находятся в `m2y/apply.sh` и `m2y.gn_args`. Параметры: `--prepare-only` останавливается перед `ninja`, `--resume` продолжает отмеченное дерево, `--resume --update` заново применяет слой M2Y к завершённому дереву.
 
 ### История ещё раз
 

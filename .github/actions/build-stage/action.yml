@@ -9,6 +9,9 @@ inputs:
   source_run_id:
     required: false
     default: ''
+  update:
+    required: false
+    default: 'false'
   threads:
     required: false
     default: '0'
@@ -49,19 +52,20 @@ runs:
         DEBIAN_FRONTEND: noninteractive
         CHROMIUM_SOURCE: ${{ inputs.chromium_source == 'github' && 'https://github.com/chromium/chromium.git' || 'https://chromium.googlesource.com/chromium/src.git' }}
       run: >
-        .github/scripts/hosted-build.sh --install-deps --resume
+        .github/scripts/hosted-build.sh --install-deps --resume ${{ inputs.update == 'true' && '--update' || '' }}
         --arch "${{ inputs.architecture }}"
         --target chrome_modern_target
 
+    # a finished tree is kept too: the base for the next --update run
     - name: Pack build tree
-      if: steps.build.outputs.status == 'running'
+      if: steps.build.outputs.status == 'running' || steps.build.outputs.status == 'completed'
       shell: bash
       env:
         UGC_WORK: /mnt/ugc
       run: .github/scripts/hosted-export.sh
 
     - name: Save build tree
-      if: steps.build.outputs.status == 'running'
+      if: steps.build.outputs.status == 'running' || steps.build.outputs.status == 'completed'
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
       with:
         name: build-tree-${{ inputs.architecture }}

@@ -17,8 +17,8 @@ if [[ ${PIPESTATUS[0]} -ne 4 ]]; then
     exit 1
 fi
 
-OPTIONS=dipra:t:
-LONGOPTS=debug,install-deps,prepare-only,resume,arch:,target:
+OPTIONS=dipra:t:u
+LONGOPTS=debug,install-deps,prepare-only,resume,update,arch:,target:
 
 ! PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
 if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
@@ -26,7 +26,7 @@ if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
 fi
 eval set -- "$PARSED"
 
-ARCH=- TARGET=- DEBUG=n INSTALL_DEPS=n PREPARE_ONLY=n RESUME=n
+ARCH=- TARGET=- DEBUG=n INSTALL_DEPS=n PREPARE_ONLY=n RESUME=n UPDATE=n
 
 while true; do
     case "$1" in
@@ -34,6 +34,7 @@ while true; do
         -i|--install-deps) INSTALL_DEPS=y; shift ;;
         -p|--prepare-only) PREPARE_ONLY=y; shift ;;
         -r|--resume) RESUME=y; shift ;;
+        -u|--update) UPDATE=y; shift ;;  # with --resume: re-apply changed M2Y edits on a finished tree
         -a|--arch) ARCH="$2"; shift 2 ;;
         -t|--target) TARGET="$2"; shift 2 ;;
         --) shift; break ;;
@@ -47,6 +48,10 @@ if [[ "$ARCH" != "arm64" ]] && [[ "$ARCH" != "arm" ]] && [[ "$ARCH" != "x64" ]];
 fi
 if [[ "$TARGET" != "chrome_modern_target" ]] && [[ "$TARGET" != "webview_target" ]]; then
     echo "Wrong target"
+    exit 5
+fi
+if [ "$UPDATE" = y ] && [ "$RESUME" != y ]; then
+    echo "--update works on a restored tree: use it together with --resume"
     exit 5
 fi
 TARGET_EXPANDED=${!TARGET}
@@ -167,6 +172,45 @@ build_fingerprint() {
   cat m2y/apply.sh m2y/skip_patches.txt m2y.gn_args build.sh .build_config .gclient $(find m2y/res -type f | sort) 2>/dev/null | sha256sum | cut -d' ' -f1
 }
 
+# What an --update may not change: the Chromium tag and the Cromite patch set the tree was patched with
+base_fingerprint() {
+  printf '%s\n' "${chromium_version}-${cromite_commit}"
+  cat m2y/skip_patches.txt .gclient 2>/dev/null | sha256sum | cut -d' ' -f1
+}
+
+m2y_edit() {
+  m2y/apply.sh src
+  ( cd src && git add -A && git commit -q -m "M2Y Browser edits (m2y/apply.sh)" )
+}
+
+configure() {
+  export PATH=${OLD_PATH:-$PATH}  # remove depot_tools from PATH (an --update never put it there)
+  pushd src
+  mkdir -p "${output_folder}"
+  {
+    # target_os first: cromite.gn_args branches on it
+    printf 'target_os="android"\ntarget_cpu="%s"\n\n' "$ARCH"
+    cat ../cromite/build/cromite.gn_args
+    printf '\n'
+    cat ../m2y.gn_args
+    printf '\nandroid_override_version_name="%s"\n' "${M2Y_VERSION}"
+    if [ "$DEBUG" = y ]; then printf 'is_debug=true\nis_official_build=false\n'; fi
+  } > "${output_folder}/args.gn"
+  buildtools/linux64/gn gen "${output_folder}" --fail-on-unused-args
+  popd
+}
+
+write_stamp() {
+  { echo "build      $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "version    ${M2Y_VERSION}"
+    echo "cromite    ${cromite_commit}"
+    echo "commit     $(git rev-parse HEAD 2>/dev/null || echo unknown)"
+    echo "fingerprint $(build_fingerprint | sha256sum | cut -d' ' -f1)"
+    echo "base       $(base_fingerprint | sha256sum | cut -d' ' -f1)"
+    echo "session    $(date -u +%Y-%m-%dT%H:%M:%SZ)  run ${GITHUB_RUN_NUMBER:-local}  $1"
+  } > "$stamp_file"
+}
+
 if [ "$RESUME" = y ]; then
     if [ ! -f "$stamp_file" ] || [ ! -f "src/out/Default/args.gn" ] || [ ! -d "src/third_party" ]; then
         echo "FATAL: --resume but the build tree is incomplete."
@@ -177,7 +221,16 @@ if [ "$RESUME" = y ]; then
     fi
     want=$(build_fingerprint | sha256sum | cut -d' ' -f1)
     have=$(grep -m1 '^fingerprint ' "$stamp_file" | awk '{print $2}')
-    if [ "$want" != "$have" ]; then
+    if [ "$UPDATE" = y ] && [ "$want" != "$have" ]; then
+        base_want=$(base_fingerprint | sha256sum | cut -d' ' -f1)
+        base_have=$(grep -m1 '^base ' "$stamp_file" | awk '{print $2}')
+        if [ "$base_want" != "$base_have" ]; then
+            echo "FATAL: --update needs the Chromium tag and Cromite patch set of the tree (stamped base: ${base_have:-none}); run a clean build."
+            exit 12
+        fi
+        echo "=== updating the M2Y layer of a stamped tree ==="
+        cat "$stamp_file"
+    elif [ "$want" != "$have" ]; then
         echo "FATAL: inputs changed since this build was stamped - resuming would mix old and new objects."
         echo "  stamped:  $have"
         echo "  current:  $want"
@@ -250,33 +303,39 @@ if [ "$RESUME" != y ]; then
   done
   popd
 
-  ## M2Y edits on top
-  m2y/apply.sh src
-  ( cd src && git add -A && git commit -q -m "M2Y Browser edits (m2y/apply.sh)" )
+  m2y_edit
+  configure
+  write_stamp "clean start"
+fi
 
-  ## Configure output folder
-  export PATH=$OLD_PATH  # remove depot_tools from PATH
+if [ "$UPDATE" = y ] && [ "$want" != "$have" ]; then
+  # The tree's last commit is the previous M2Y edit: back to the Cromite state, then the current m2y/apply.sh.
+  # Files whose content comes out the same get their old mtime back, so ninja rebuilds only what really changed.
   pushd src
-  mkdir -p "${output_folder}"
-  {
-    # target_os first: cromite.gn_args branches on it
-    printf 'target_os="android"\ntarget_cpu="%s"\n\n' "$ARCH"
-    cat ../cromite/build/cromite.gn_args
-    printf '\n'
-    cat ../m2y.gn_args
-    printf '\nandroid_override_version_name="%s"\n' "${M2Y_VERSION}"
-    if [ "$DEBUG" = y ]; then printf 'is_debug=true\nis_official_build=false\n'; fi
-  } > "${output_folder}/args.gn"
-  buildtools/linux64/gn gen "${output_folder}" --fail-on-unused-args
+  git config core.checkStat minimal  # a restored tree has new inodes/ctimes; mtime and size still match the index
+  git config core.trustctime false
+  [ "$(git log -1 --format=%s)" = "M2Y Browser edits (m2y/apply.sh)" ] || { echo "FATAL: the tree's last commit is not the M2Y edit"; exit 13; }
+  declare -A old_sum old_mtime
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    old_sum[$f]=$(sha256sum < "$f")
+    old_mtime[$f]=$(stat -c %Y "$f")
+  done < <(git diff --name-only HEAD~1 HEAD)
+  git reset -q --hard HEAD~1
   popd
-
-  { echo "build      $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    echo "version    ${M2Y_VERSION}"
-    echo "cromite    ${cromite_commit}"
-    echo "commit     $(git rev-parse HEAD 2>/dev/null || echo unknown)"
-    echo "fingerprint $(build_fingerprint | sha256sum | cut -d' ' -f1)"
-    echo "session    $(date -u +%Y-%m-%dT%H:%M:%SZ)  run ${GITHUB_RUN_NUMBER:-local}  clean start"
-  } > "$stamp_file"
+  m2y_edit
+  pushd src
+  kept=0
+  for f in "${!old_sum[@]}"; do
+    if [ -f "$f" ] && [ "$(sha256sum < "$f")" = "${old_sum[$f]}" ]; then
+      touch -m -d "@${old_mtime[$f]}" "$f"
+      kept=$((kept+1))
+    fi
+  done
+  echo "M2Y layer: ${#old_sum[@]} files in the previous edit, ${kept} unchanged; $(git diff --name-only HEAD~1 HEAD | wc -l) files now"
+  popd
+  configure
+  write_stamp "updated M2Y layer"
 fi
 
 if [ "$PREPARE_ONLY" = y ]; then

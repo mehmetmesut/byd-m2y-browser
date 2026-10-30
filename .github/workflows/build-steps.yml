@@ -14,6 +14,10 @@ on:
         required: false
         type: string
         default: ''
+      update:
+        required: false
+        type: boolean
+        default: false
       threads:
         required: false
         type: number
@@ -71,6 +75,7 @@ jobs:
           architecture: ${{ inputs.architecture }}
           chromium_source: ${{ inputs.chromium_source }}
           source_run_id: ${{ inputs.source_run_id }}
+          update: ${{ inputs.update }}
           threads: ${{ inputs.threads }}
           keystore_b64: ${{ secrets.KEYSTORE_B64 }}
           keystore_pass: ${{ secrets.KEYSTORE_PASS }}

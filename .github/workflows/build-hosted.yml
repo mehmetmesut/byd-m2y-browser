@@ -28,6 +28,11 @@ on:
         required: false
         default: ''
         type: string
+      update:
+        description: 'with a finished run id: re-apply m2y/apply.sh on its tree, rebuild only what changed'
+        required: false
+        default: false
+        type: boolean
       threads:
         description: 'number of threads to use (0 = all)'
         required: false
@@ -55,6 +60,7 @@ jobs:
       architecture: ${{ matrix.architecture }}
       chromium_source: ${{ inputs.chromium_source || 'github' }}
       source_run_id: ${{ inputs.source_run_id }}
+      update: ${{ inputs.update || false }}
       threads: ${{ fromJSON(inputs.threads || '0') }}
 
   release:
