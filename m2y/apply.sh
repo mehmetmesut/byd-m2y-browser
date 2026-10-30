@@ -40,7 +40,7 @@ grep -A4 '"Turkish Filters"' "$SUB" | grep -q SubscribeAtFirstRun || fail "Turki
 perl -0pi -e 's/("Cromite experimental filters",\s*\{\},\s*SubscriptionUiVisibility::Visible,\s*)SubscriptionFirstRunBehavior::SubscribeAtFirstRun/$1SubscriptionFirstRunBehavior::Ignore/' "$SUB"
 ! grep -A4 '"Cromite experimental filters"' "$SUB" | grep -q SubscribeAtFirstRun || fail "experimental filters still on at first run"
 
-echo "--- M2Y: languages tr + en-US only"
+echo "--- M2Y: languages tr + en-US + ru only"
 LOC=build/config/locales.gni
 expect "$LOC" 'android_bundle_locales_as_resources'
 # Appended after every rule in the file: earlier lines remove Android names (es-r419, ...) and pseudolocales
@@ -52,9 +52,9 @@ grep -q 'M2Y: car languages only' "$LOC" || cat >> "$LOC" <<'GNI'
 # M2Y: car languages only
 if (is_android) {
   platform_pak_locales = []
-  platform_pak_locales = [ "en-US", "tr" ]
+  platform_pak_locales = [ "en-US", "ru", "tr" ]
   android_bundle_locales_as_resources = []
-  android_bundle_locales_as_resources = [ "tr" ]
+  android_bundle_locales_as_resources = [ "ru", "tr" ]
 }
 GNI
 expect "$LOC" 'M2Y: car languages only'
@@ -100,7 +100,7 @@ done
 printf '<?xml version="1.0" encoding="utf-8"?>\n<bitmap xmlns:android="http://schemas.android.com/apk/res/android" android:src="@mipmap/layered_app_icon" />\n' \
   > "$ICO/drawable/themed_app_icon.xml"
 
-echo "--- M2Y: one fixed configuration (mandatory policies, feature defaults, hidden option entries)"
+echo "--- M2Y: fixed search, home page and JIT (mandatory policies), lighter feature defaults"
 # Cromite's command-line policy loader runs on every start. M2Y's policies are set directly (not via AddPolicy), so
 # chrome://policy cannot switch them off; the settings UI shows them as managed and unchangeable.
 POL=components/policy/core/common/policy_loader_command_line.cc
@@ -114,7 +114,6 @@ grep -q 'M2Y: fixed car configuration' "$POL" || perl -0pi -e 's#(\n  policy_map
   // Google is the only search engine; no suggestion request per keystroke
   m2y(key::kDefaultSearchProviderEnabled, base::Value(true));
   m2y(key::kDefaultSearchProviderName, base::Value("Google"));
-  m2y(key::kDefaultSearchProviderKeyword, base::Value("google.com"));
   m2y(key::kDefaultSearchProviderSearchURL,
       base::Value("https://www.google.com/search?q={searchTerms}&ie={inputEncoding}"));
   m2y(key::kSearchSuggestEnabled, base::Value(false));
@@ -126,18 +125,8 @@ grep -q 'M2Y: fixed car configuration' "$POL" || perl -0pi -e 's#(\n  policy_map
   // JavaScript JIT and optimizer on (Cromite blocks JIT by default): 1 = allow
   m2y(key::kDefaultJavaScriptJitSetting, base::Value(1));
   m2y(key::kDefaultJavaScriptOptimizerSetting, base::Value(1));
-  // no push, no form filling, no printing in the car: 2 = block
-  m2y(key::kDefaultNotificationsSetting, base::Value(2));
-  m2y(key::kPasswordManagerEnabled, base::Value(false));
-  m2y(key::kAutofillAddressEnabled, base::Value(false));
-  m2y(key::kAutofillCreditCardEnabled, base::Value(false));
-  m2y(key::kPrintingEnabled, base::Value(false));
-  base::ListValue m2y_blocked;
-  m2y_blocked.Append("chrome://flags");
-  m2y(key::kURLBlocklist, base::Value(std::move(m2y_blocked)));
 $1#' "$POL"
 expect "$POL" 'm2y(key::kDefaultSearchProviderSearchURL,'
-expect "$POL" 'm2y(key::kURLBlocklist, base::Value(std::move(m2y_blocked)));'
 expect "$POL" 'm2y(key::kHomepageLocation, base::Value("https://www.google.com/"));'
 
 # The engine list itself holds only Google: Cromite appends "Google in English" and DuckDuckGo Light to the regional
@@ -176,22 +165,5 @@ flip cromite_flags/chrome/browser/flags/android/chrome_feature_list_cc/tab-switc
 LST=chrome/browser/flags/android/java/src/org/chromium/chrome/browser/flags/cromite/sTabSwitcherListMode.java
 sed -i 's/"TabSwitcherListMode", false);/"TabSwitcherListMode", true);/' "$LST"  # the first run, before the flag cache exists
 expect "$LST" '"TabSwitcherListMode", true);'
-
-# Options with no policy: entries hidden (code stays, so later Cromite patches keep applying)
-HIDE="always_incognito proxy useragent_settings userscripts_settings force_tablet_ui move_toolbar_bottom pixel_perfect_mode
-      enable_extensions_android enable_cromite_test_support act_as_webview test_gwp_asan throttle_main_thread_to_60hz
-      allow_inline_update cromite_flags tabgrid_use_icons use_tab_switcher_list_mode"
-XMLS=$(find chrome/android/java/res/xml components/browser_ui/accessibility/android/java/res/xml -name '*.xml')
-for k in $HIDE; do
-  files=$(grep -l "android:key=\"$k\"" $XMLS || true)
-  [ -n "$files" ] || fail "preference '$k' not found"
-  for f in $files; do
-    grep -q 'xmlns:app=' "$f" || sed -i '0,/xmlns:android="[^"]*"/s##& xmlns:app="http://schemas.android.com/apk/res-auto"#' "$f"
-    grep -q "android:key=\"$k\" app:isPreferenceVisible=\"false\"" "$f" ||
-      sed -i "s#android:key=\"$k\"#& app:isPreferenceVisible=\"false\"#" "$f"
-    expect "$f" "android:key=\"$k\" app:isPreferenceVisible=\"false\""
-    expect "$f" 'xmlns:app='
-  done
-done
 
 echo "--- M2Y: done"

@@ -4,12 +4,11 @@
 # own package, own name (strings are set by m2y/apply.sh)
 chrome_public_manifest_package = "com.m2y.browser"
 
-# the BYD head unit is the only target: arm64 built by the workflow, one density, two languages
+# the BYD head unit is the only target: arm64 built by the workflow, one density, three languages
 # (locale and density trimming live in m2y/apply.sh because they are not GN args)
 
-# PGO profiles for android-arm64 are not public (https://issues.chromium.org/issues/372686816);
-# first builds go without PGO, which only costs some speed, never correctness
-chrome_pgo_phase = 0
+# PGO stays on (Cromite: chrome_pgo_phase = 2): the android-arm64 profile ships with the public orderfile package
+# (chrome/android/orderfiles/arm64/pgo_profile.arm64.profdata); without it the native code was 12% larger
 
 # No debug symbols or linker maps: nothing on the car uses them, and they cost hours and disk in the relay
 symbol_level = 0
