@@ -166,4 +166,10 @@ LST=chrome/browser/flags/android/java/src/org/chromium/chrome/browser/flags/crom
 sed -i 's/"TabSwitcherListMode", false);/"TabSwitcherListMode", true);/' "$LST"  # the first run, before the flag cache exists
 expect "$LST" '"TabSwitcherListMode", true);'
 
+# Cromite's own updater polls Cromite's GitHub releases and offers the Cromite APK (another package): it is off by
+# default, so hiding its switch in About keeps M2Y from ever contacting it
+ABT=chrome/android/java/src/org/chromium/chrome/browser/about_settings/AboutChromeSettings.java
+sed -i 's/^\(\s*\)allowInlineUpdate.setOnPreferenceChangeListener(this);$/&\n\1allowInlineUpdate.setVisible(false);  \/\/ M2Y/' "$ABT"
+expect "$ABT" 'allowInlineUpdate.setVisible(false);  // M2Y'
+
 echo "--- M2Y: done"
