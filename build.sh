@@ -68,7 +68,9 @@ fetch_depot_tools() {
   rm -rf depot_tools
   mkdir -p depot_tools
   ( cd depot_tools && git init -q       && git remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git       && git fetch --depth 1 --no-tags origin "${commit}" && git reset -q --hard FETCH_HEAD ) || return $?
-  ln -sfn ../../depot_tools src/third_party/depot_tools
+  # a directory there (not the link) would make ln put the link inside it
+  rm -rf src/third_party/depot_tools
+  ln -s ../../depot_tools src/third_party/depot_tools
 }
 
 function prepare_repos {
@@ -344,6 +346,7 @@ if [ "$UPDATE" = y ] && [ "$want" != "$have" ]; then
   # gn's PGO step imports depot_tools from src/third_party/depot_tools; a restored tree may lack it
   if [ ! -f src/third_party/depot_tools/download_from_google_storage.py ]; then
     echo "depot_tools missing from the restored tree, fetching the pinned commit"
+    ls -la src/third_party/depot_tools 2>&1 | head -5
     fetch_depot_tools || exit 14
   fi
   configure
