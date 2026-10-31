@@ -61,6 +61,16 @@ echo "arch: $ARCH, target: $TARGET -> ${TARGET_EXPANDED}, version: ${M2Y_VERSION
 
 path_modified=false
 
+# depot_tools at the commit src/DEPS pins, linked where Chromium's scripts import it from
+fetch_depot_tools() {
+  local commit
+  commit=$(grep 'depot_tools.git' src/DEPS | cut -d"'" -f8)
+  rm -rf depot_tools
+  mkdir -p depot_tools
+  ( cd depot_tools && git init -q       && git remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git       && git fetch --depth 1 --no-tags origin "${commit}" && git reset -q --hard FETCH_HEAD ) || return $?
+  ln -sfn ../../depot_tools src/third_party/depot_tools
+}
+
 function prepare_repos {
   git config --global http.lowSpeedLimit 1000
   git config --global http.lowSpeedTime 900
@@ -109,22 +119,11 @@ function prepare_repos {
   git checkout -q "${chromium_version}" || { popd; return 1; }
   popd
 
-  ## Fetch depot-tools
-  depot_tools_commit=$(grep 'depot_tools.git' src/DEPS | cut -d\' -f8)
-  mkdir -p depot_tools
-  pushd depot_tools
-  git init
-  git remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git
-  git fetch --depth 1 --no-tags origin "${depot_tools_commit}" || return $?
-  git reset --hard FETCH_HEAD
-  popd
+  fetch_depot_tools || return $?
   OLD_PATH=$PATH
   export PATH="$(pwd -P)/depot_tools:$PATH"
   export PYTHONPATH="$(pwd -P)/depot_tools${PYTHONPATH:+:$PYTHONPATH}"
   path_modified=true
-  pushd src/third_party
-  ln -sfn ../../depot_tools
-  popd
 
   git config --global http.lowSpeedTime 120
   DEPOT_TOOLS_UPDATE=0 gclient sync -D --no-history --nohooks --shallow
@@ -342,6 +341,11 @@ if [ "$UPDATE" = y ] && [ "$want" != "$have" ]; then
   done
   echo "M2Y layer: ${#old_sum[@]} files in the previous edit, ${kept} unchanged; $(git diff --name-only HEAD~1 HEAD | wc -l) files now"
   popd
+  # gn's PGO step imports depot_tools from src/third_party/depot_tools; a restored tree may lack it
+  if [ ! -f src/third_party/depot_tools/download_from_google_storage.py ]; then
+    echo "depot_tools missing from the restored tree, fetching the pinned commit"
+    fetch_depot_tools || exit 14
+  fi
   configure
   write_stamp "updated M2Y layer"
 fi
