@@ -6,6 +6,9 @@ chrome_public_manifest_package = "com.m2y.browser"
 
 # the BYD head unit is the only target: arm64 built by the workflow, one density, three languages
 # (locale and density trimming live in m2y/apply.sh because they are not GN args)
+# Android always loads the default-gender locale pak (resource_bundle_android.cc: Gender::kDefault),
+# so the empty _FEMININE/_MASCULINE/_NEUTER paks are never read
+translate_genders = false
 
 # PGO stays on (Cromite: chrome_pgo_phase = 2): the android-arm64 profile ships with the public orderfile package
 # (chrome/android/orderfiles/arm64/pgo_profile.arm64.profdata); without it the native code was 12% larger
