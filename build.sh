@@ -324,7 +324,12 @@ if [ "$UPDATE" = y ] && [ "$want" != "$have" ]; then
     old_sum[$f]=$(sha256sum < "$f")
     old_mtime[$f]=$(stat -c %Y "$f")
   done < <(git diff --name-only HEAD~1 HEAD)
-  git reset -q --hard HEAD~1
+  # Undo only what apply.sh modified or deleted: the edit commit also swept in untracked files present at prep time
+  # (the third_party/depot_tools link, downloaded profiles), and a hard reset would delete them
+  # shortcut: a file an older apply.sh created stays on disk, remove it by hand if apply.sh stops creating it
+  mapfile -t _back < <(git diff --name-only --diff-filter=MD HEAD~1 HEAD)
+  git reset -q --mixed HEAD~1
+  [ ${#_back[@]} -eq 0 ] || git checkout -q HEAD -- "${_back[@]}"
   popd
   m2y_edit
   pushd src
